@@ -29,7 +29,7 @@ Pattern is a Python module with built-in sentiment analysis functions. Indico is
 two APIs for sentiment analysis. 
 
 Method | Accuracy | Precision | Sensitivity | Notes
-----------------
+--------|---------|-----------|--------------|------
 Bag of Words (5000 features, 100 tree, no stemming) | .836 | .835 | .837 | Fast base line case
 Bag of Words (5000 features, 100 tree, Porter stem) | .835 | .841 | .827 | Stemming made it worse
 Bag of Words (5000 features, 500 tree, no stemming) | .850 | .849 | .847 | 5x the trees is better
