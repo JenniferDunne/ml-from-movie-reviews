@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.grid_search import GridSearchCV
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn import metrics
 import pickle
+
 
 def build_dataframes():
     '''
@@ -14,11 +16,13 @@ def build_dataframes():
     df_reviews = pd.read_csv('../data/reviews.csv')
     return df_movies, df_reviews
 
+
 def get_val_from_inside(term):
     '''
     Helper function to strip out the surrounding brackets and convert to integer
     '''
     return int(term[1:-1])
+
 
 def get_arr_from_inside(term):
     '''
@@ -27,6 +31,7 @@ def get_arr_from_inside(term):
     term_list = term[2:-2].split(',')
     return np.array([float(t) for t in term_list])
 
+
 def make_bool_list(l):
     '''
     Helper function to convert lists of 'true' and 'false' strings to integer 1 and 0.
@@ -34,12 +39,14 @@ def make_bool_list(l):
     term_list = l[1:-1].split(',')
     return np.array([make_bool(t) for t in term_list])
 
+
 def abbreviate_targ(l):
     '''
     Helper function to abbreviate target lists.
     '''
     term_list = [l[0], l[1], l[2], l[4], l[5], l[6], l[8], l[10], l[11], l[12], l[13], l[15], l[16], l[17]]
     return np.array(term_list)
+
 
 def make_bool(term):
     '''
@@ -50,6 +57,7 @@ def make_bool(term):
     else:
         return 0
 
+
 def transform_word_count(df):
     '''
     Given a DataFrame (df) with the column 'word_count', return a dataframe
@@ -57,6 +65,7 @@ def transform_word_count(df):
     '''
     df['wd_ct'] = df['word_count'].apply(get_val_from_inside)
     return df
+
 
 def transform_doc_vec(df):
     '''
@@ -67,6 +76,7 @@ def transform_doc_vec(df):
     df.drop('doc_vec', axis=1)
     return df
 
+
 def transform_target(df):
     '''
     Given a DataFrame (df) with the string column 'genre_vec', return a dataframe
@@ -76,6 +86,7 @@ def transform_target(df):
     df['target'] = df['genre_vec'].apply(make_bool_list)
     df['abr_targ'] = df['target'].apply(abbreviate_targ)
     return df
+
 
 def make_target_matrix(target):
     '''
@@ -101,7 +112,7 @@ def iterate_grid(features, target):
     best parameters for predicting that target. Combine all of the models in a
     list of models. Return the list of models.
     '''
-    genre_list = ['action', 'animation', 'comedy', 'drama', 'family', 'fantasy', \
+    genre_list = ['action', 'animated', 'comedy', 'drama', 'family', 'fantasy', \
     'horror', 'musical', 'mystery', 'romance', 'sci-fi', 'thriller', 'war', 'western']
     model_list = []
     for i in xrange(len(target[0])):
@@ -109,15 +120,17 @@ def iterate_grid(features, target):
         model_list.append(model)
     return model_list
 
+
 def build_grid(features, target, genre):
     '''
     Build an individual grid search across varying parameters for a single genre.
     Return the best model.
     '''
-    grid = GridSearchCV(GradientBoostingClassifier, {n_estimators: [100, 300, 500, 700], \
-    max_depth: [3,4,5,6,7]}, n_jobs=-1, random_state=42)
+    grid = GridSearchCV(GradientBoostingClassifier, {'n_estimators': [100, 300, 500, 700], \
+    'max_depth': [3,4,5,6,7], 'random_state':[42]}, n_jobs=-1)
+    grid.fit(features, target)
     filename = '../data/grid_' + genre + '.txt'
-    with open(filename) as f:
+    with open(filename, 'w') as f:
         f.write("The best estimator for " + genre + " was:\n")
         f.write(grid.best_params_)
         f.write("\nAnd a score of: {}".format(grid.best_score_))
@@ -160,6 +173,7 @@ def build_multi_class(features, target):
     model.fit(features, target)
     return model
 
+
 def test_multi_class(model, features, target):
     '''
     Given a multi-label multi-class classifier, test features, and a test target,
@@ -181,6 +195,7 @@ def test_multi_class(model, features, target):
         yrd = round_by(ypred, .4)
         f.write( metrics.classification_report(target, yrd) )
 
+
 def round_by(predictions, n):
     '''
     Given an array of probabilistic predictions, return an array with
@@ -196,6 +211,7 @@ def round_by(predictions, n):
                 round_list.append(0)
         res_list.append(round_list)
     return np.array(res_list)
+
 
 def test_train(df):
     '''
@@ -215,6 +231,7 @@ def test_train(df):
     yt = pd.Series(yt.values)
     ytm = np.matrix([r for r in yt])
     return Xtrm, Xtm, ytrm, ytm
+
 
 def primary(df_movies, df_reviews):
     '''
@@ -248,6 +265,7 @@ def primary(df_movies, df_reviews):
     #test_multi_class(modelall, Xtall, ytall)
     model_list = iterate_grid(Xtr500, ytr500)
     test_grid(model_list, Xt500, yt500)
+
 
 if __name__ == '__main__':
     df_movies, df_reviews = build_dataframes()
