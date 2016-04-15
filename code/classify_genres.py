@@ -88,15 +88,6 @@ def transform_target(df):
     return df
 
 
-def make_target_matrix(target):
-    '''
-    Given a pandas series of numpy arrays, convert it to a 2d numpy make_target_matrix
-    '''
-    num_rows = len(target)
-    num_cols = len(target[0])
-    mat = np.matrix()
-
-
 def create_sub_frame(df, n=500):
     '''
     Create sub-data-frame of only those reviews in df that are at least n (int) words
@@ -115,7 +106,7 @@ def iterate_grid(features, target):
     genre_list = ['action', 'animated', 'comedy', 'drama', 'family', 'fantasy', \
     'horror', 'musical', 'mystery', 'romance', 'sci-fi', 'thriller', 'war', 'western']
     model_list = []
-    for i in xrange(len(target[0])):
+    for i in xrange(target.shape[1]):
         model = build_grid(features, target[:,i], genre_list[i])
         model_list.append(model)
     return model_list
@@ -126,13 +117,16 @@ def build_grid(features, target, genre):
     Build an individual grid search across varying parameters for a single genre.
     Return the best model.
     '''
-    grid = GridSearchCV(GradientBoostingClassifier, {'n_estimators': [100, 300, 500, 700], \
-    'max_depth': [3,4,5,6,7], 'random_state':[42]}, n_jobs=-1)
-    grid.fit(features, target)
+    gbc = GradientBoostingClassifier()
+    grid = GridSearchCV(gbc, {'n_estimators': [100, 300, 500, 700], \
+    'max_depth': [2,3,4,5,6,7], 'random_state':[42]}, n_jobs=-1)
+    # convert the target (column of a matrix) to a simple array
+    target_arr = np.array(target.reshape(1,-1))[0]
+    grid.fit(features, target_arr)
     filename = '../data/grid_' + genre + '.txt'
     with open(filename, 'w') as f:
         f.write("The best estimator for " + genre + " was:\n")
-        f.write(grid.best_params_)
+        f.write(str(grid.best_params_))
         f.write("\nAnd a score of: {}".format(grid.best_score_))
     return grid.best_estimator_
 
@@ -142,11 +136,11 @@ def test_grid(model_list, features, target):
     Given a list of models for each genre, run the features through the models to
     predict target labels, and compare the predictions to the true target labels.
     '''
-    ypred_mat = np.empty(len(target), len(target[0]))
-    for i in xrange(len(target[0])):
+    ypred_mat = np.empty([target.shape[0], target.shape[1]])
+    for i in xrange(target.shape[1]):
         model = model_list[i]
         ypred = model.predict_proba(features)
-        for j, prob in enumerate(ypred):
+        for j, prob in enumerate(ypred[:,0]):
             ypred_mat[j,i] = prob
     with open('../data/grid_abbr_500.txt','w') as f:
         f.write("Model rounded by .25\n")
