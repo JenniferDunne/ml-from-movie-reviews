@@ -12,149 +12,64 @@ def build_dataframes():
     '''
     Import CSV files of movies and movie reviews into dataframes
     '''
-    df_movies = pd.read_csv('../data/movies.csv')
-    df_reviews = pd.read_csv('../data/reviews.csv')
-    return df_movies, df_reviews
+    df_all_500 = pd.read_csv('../data/df500.csv')
+    Xtr = np.loadtxt('../data/Xtr500.csv', delimiter=',')
+    ytr = np.loadtxt('../data/ytr500.csv', delimiter=',')
+    Xt = np.loadtxt('../data/Xt500.csv', delimiter=',')
+    yt = np.loadtxt('../data/yt500.csv', delimiter=',')
+    return df_all_500, Xtr, ytr, Xt, yt
 
 
-def get_val_from_inside(term):
+def test_prediction(filename, features, target):
     '''
-    Helper function to strip out the surrounding brackets and convert to integer
+    Given the filename of a pickled estimator, unpickle the estimator, run the
+    features through it, compare the results with the target, and return the
+    results.
     '''
-    return int(term[1:-1])
+    estimator = pickle.load( open( filename, "rb" ) )
+    res = estimator.predict_proba(features)[:,0]
+    print "\nResults for {0}: \n".format(filename)
+    print "\nRounded by .25\n"
+    yrd = round_by(res, .25)
+    print metrics.classification_report(target, yrd)
+    print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
+    print "\nRounded by .1\n"
+    yrd = round_by(res, .1)
+    print metrics.classification_report(target, yrd)
+    print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
+    return res
 
 
-def get_arr_from_inside(term):
-    '''
-    Helper function to strip out the surrounding brackets and convert to an array of float
-    '''
-    term_list = term[2:-2].split(',')
-    return np.array([float(t) for t in term_list])
-
-
-def make_bool_list(l):
-    '''
-    Helper function to convert lists of 'true' and 'false' strings to integer 1 and 0.
-    '''
-    term_list = l[1:-1].split(',')
-    return np.array([make_bool(t) for t in term_list])
-
-
-def abbreviate_targ(l):
-    '''
-    Helper function to abbreviate target lists.
-    '''
-    term_list = [l[0], l[1], l[2], l[4], l[5], l[6], l[8], l[10], l[11], l[12], l[13], l[15], l[16], l[17]]
-    return np.array(term_list)
-
-
-def make_bool(term):
-    '''
-    Helper function to convert 'true' and 'false' strings to integer 1 and 0.
-    '''
-    if term=='true':
-        return 1
-    else:
-        return 0
-
-
-def transform_word_count(df):
-    '''
-    Given a DataFrame (df) with the column 'word_count', return a dataframe
-    with the new column 'wd_ct' that has an integer value of that value.
-    '''
-    df['wd_ct'] = df['word_count'].apply(get_val_from_inside)
-    return df
-
-
-def transform_doc_vec(df):
-    '''
-    Given a DataFrame (df) with the string column 'doc_vec', return a dataframe
-    with the new column 'doc_vec_arrr' that has an array of float for that value.
-    '''
-    df['doc_vec_arr'] = df['doc_vec'].apply(get_arr_from_inside)
-    df.drop('doc_vec', axis=1)
-    return df
-
-
-def transform_target(df):
-    '''
-    Given a DataFrame (df) with the string column 'genre_vec', return a dataframe
-    with the new column 'target' that has an array of boolean integers for that value.
-    Then create a column called 'abr_targ' that has the abbreviated target array.
-    '''
-    df['target'] = df['genre_vec'].apply(make_bool_list)
-    df['abr_targ'] = df['target'].apply(abbreviate_targ)
-    return df
-
-
-def create_sub_frame(df, n=500):
-    '''
-    Create sub-data-frame of only those reviews in df that are at least n (int) words
-    '''
-    if 'wd_ct' not in df.columns:
-        df = transform_word_count(df)
-    return df[df['wd_ct'] > n]
-
-
-def iterate_grid(features, target):
-    '''
-    For every column in the target matrix, build a grid search to determine the
-    best parameters for predicting that target. Combine all of the models in a
-    list of models. Return the list of models.
-    '''
-    genre_list = ['action', 'animated', 'comedy', 'drama', 'family', 'fantasy', \
-    'horror', 'musical', 'mystery', 'romance', 'sci-fi', 'thriller', 'war', 'western']
-    model_list = []
-    for i in xrange(target.shape[1]):
-        model = build_grid(features, target[:,i], genre_list[i])
-        model_list.append(model)
-    return model_list
-
-
-def build_grid(features, target, genre):
-    '''
-    Build an individual grid search across varying parameters for a single genre.
-    Return the best model.
-    '''
-    gbc = GradientBoostingClassifier()
-    grid = GridSearchCV(gbc, {'n_estimators': [100, 300, 500, 700], \
-    'max_depth': [2,3,4,5,6,7], 'random_state':[42]}, n_jobs=-1)
-    # convert the target (column of a matrix) to a simple array
-    target_arr = np.array(target.reshape(1,-1))[0]
-    grid.fit(features, target_arr)
-    filename = '../data/grid_' + genre + '.txt'
-    with open(filename, 'w') as f:
-        f.write("The best estimator for " + genre + " was:\n")
-        f.write(str(grid.best_params_))
-        f.write("\nAnd a score of: {}".format(grid.best_score_))
-    return grid.best_estimator_
-
-
-def test_grid(model_list, features, target):
+def test_grid(features, target):
     '''
     Given a list of models for each genre, run the features through the models to
     predict target labels, and compare the predictions to the true target labels.
     '''
+    genre_list = ['animated', 'action', 'comedy', 'drama', 'family', 'fantasy', \
+    'horror', 'musical', 'mystery', 'romance', 'sci-fi', 'thriller', 'war', 'western']
     ypred_mat = np.empty([target.shape[0], target.shape[1]])
     for i in xrange(target.shape[1]):
-        model = model_list[i]
-        ypred = model.predict_proba(features)
-        for j, prob in enumerate(ypred[:,0]):
+        filename = '../data/is_' + genre_list[i] + '.pkl'
+        ypred = test_prediction(filename, features, target[:,i])
+        for j, prob in enumerate(ypred):
             ypred_mat[j,i] = prob
-    with open('../data/grid_abbr_500.txt','w') as f:
+    with open('../data/grid_pkl_500.txt','w') as f:
         f.write("Model rounded by .25\n")
         yrd = round_by(ypred_mat, .25)
         f.write( metrics.classification_report(target, yrd) )
+        f.write( "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd)) )
         f.write("\nModel rounded by .3\n")
         yrd = round_by(ypred_mat, .3)
         f.write( metrics.classification_report(target, yrd) )
+        f.write( "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd)) )
         f.write("\nModel rounded by .2\n")
         yrd = round_by(ypred_mat, .2)
         f.write( metrics.classification_report(target, yrd) )
-        f.write("\nModel rounded by .4\n")
-        yrd = round_by(ypred_mat, .4)
+        f.write( "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd)) )
+        f.write("\nModel rounded by .1\n")
+        yrd = round_by(ypred_mat, .1)
         f.write( metrics.classification_report(target, yrd) )
+        f.write( "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd)) )
 
 
 def build_multi_class(features, target):
@@ -162,7 +77,7 @@ def build_multi_class(features, target):
     Initialize a multi-label multi-class classifier, then fit it.
     '''
     print "Building model..."
-    model = OneVsRestClassifier(GradientBoostingClassifier(n_estimators = 500, random_state=42), n_jobs=-1)
+    model = OneVsRestClassifier(GradientBoostingClassifier(n_estimators = 1000, random_state=42), n_jobs=-1)
     print "Training model...\n(This may take a while)"
     model.fit(features, target)
     return model
@@ -173,21 +88,25 @@ def test_multi_class(model, features, target):
     Given a multi-label multi-class classifier, test features, and a test target,
     score how well it does. Write the scores to a file.
     '''
-    with open('../data/gboost_abbr_500.txt','w') as f:
+    with open('../data/gboost_1000_trees.txt','w') as f:
         f.write("Creating predictions...\n")
         ypred = model.predict_proba(features)
         f.write("Model rounded by .25\n")
         yrd = round_by(ypred, .25)
         f.write( metrics.classification_report(target, yrd) )
+        print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
         f.write("\nModel rounded by .3\n")
         yrd = round_by(ypred, .3)
         f.write( metrics.classification_report(target, yrd) )
+        print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
         f.write("\nModel rounded by .2\n")
         yrd = round_by(ypred, .2)
         f.write( metrics.classification_report(target, yrd) )
+        print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
         f.write("\nModel rounded by .4\n")
         yrd = round_by(ypred, .4)
         f.write( metrics.classification_report(target, yrd) )
+        print "Percent of misclassification: {}\n".format(metrics.zero_one_loss(target, yrd))
 
 
 def round_by(predictions, n):
@@ -198,33 +117,34 @@ def round_by(predictions, n):
     res_list = []
     for i in xrange(len(predictions)):
         round_list = []
-        for j in xrange(len(predictions[i])):
-            if predictions[i][j] >= n:
-                round_list.append(1)
+        if len(predictions.shape) > 1:    # handle both 1-d and 2-d arrays
+            for j in xrange(len(predictions[i])):
+                if predictions[i][j] >= n:
+                    round_list.append(1)
+                else:
+                    round_list.append(0)
+            res_list.append(round_list)
+        else:
+            if predictions[i] >= n:
+                res_list.append(1)
             else:
-                round_list.append(0)
-        res_list.append(round_list)
+                res_list.append(0)
     return np.array(res_list)
 
 
-def test_train(df):
+def make_matrix(df):
     '''
     Given a dataframe containing 'doc_vec_arr', and 'target' columns,
-    return matrices of features and targets for training and testing
+    return matrices of features and targets
     '''
     print "Dividing the data..."
     target = df['abr_targ']
     train = df['doc_vec_arr']
-    Xtr, Xt, ytr, yt = train_test_split(train, target, test_size=.3, random_state=42)
-    Xtr = pd.Series(Xtr.values)
-    Xtrm = np.matrix([r for r in Xtr])
-    Xt = pd.Series(Xt.values)
-    Xtm = np.matrix([r for r in Xt])
-    ytr = pd.Series(ytr.values)
-    ytrm = np.matrix([r for r in ytr])
-    yt = pd.Series(yt.values)
-    ytm = np.matrix([r for r in yt])
-    return Xtrm, Xtm, ytrm, ytm
+    train = pd.Series(train.values)
+    features = np.matrix([r for r in train])
+    y = pd.Series(target.values)
+    ym = np.matrix([r for r in y])
+    return features, ym
 
 
 def primary(df_movies, df_reviews):
@@ -257,10 +177,11 @@ def primary(df_movies, df_reviews):
     #test_multi_class(model150, Xt150, yt150)
     #modelall = build_multi_class(Xtrall, ytrall)
     #test_multi_class(modelall, Xtall, ytall)
-    model_list = iterate_grid(Xtr500, ytr500)
-    test_grid(model_list, Xt500, yt500)
+
 
 
 if __name__ == '__main__':
-    df_movies, df_reviews = build_dataframes()
-    primary(df_movies, df_reviews)
+    df_all_500, Xtr500, ytr500, Xt500, yt500 = build_dataframes()
+    model500 = build_multi_class(Xtr500, ytr500)
+    test_multi_class(model500, Xt500, yt500)
+    #test_grid(Xt500, yt500)

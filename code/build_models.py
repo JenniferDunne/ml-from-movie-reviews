@@ -111,6 +111,15 @@ def iterate_models(features, target):
             pickle.dump(model, f)
 
 
+def create_sub_frame(df, n=500):
+    '''
+    Create sub-data-frame of only those reviews in df that are at least n (int) words
+    '''
+    if 'wd_ct' not in df.columns:
+        df = transform_word_count(df)
+    return df[df['wd_ct'] > n]
+
+
 def test_train(df):
     '''
     Given a dataframe containing 'doc_vec_arr', and 'target' columns,
@@ -140,4 +149,3 @@ if __name__ == '__main__':
     df_all_500 = create_sub_frame(result, 500)
     Xtr500, Xt500, ytr500, yt500 = test_train(df_all_500)
     iterate_models(Xtr500,ytr500)
-    
