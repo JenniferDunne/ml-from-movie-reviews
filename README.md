@@ -109,7 +109,7 @@ other recent Disney musicals.) However, I ran into "outlier" movies, such as Per
 which was an animated horror, mystery, thriller. Should they be combined with other films
 that they really were not similar to? Removed as outliers that distort the data?
 
-Even with these combinations, there were still hundreds of combinations. Even worse, since
+Even with these limitations, there were still hundreds of combinations. Even worse, since
 so many films had unique combinations, odds are really good that future films would have
 unique combinations as well, meaning my model would be doomed to fail when predicting
 these new films. Clearly, this was not the best strategy.
@@ -135,13 +135,17 @@ Number of Reviews |	Word Length	| F1 Score
 72,691 | 200+ | .56
 129,809 | All Reviews | .54
 
-I used an F1 score to compare the results, because it evenly weighted both Accuracy
+I used an F1 score to compare the results, because it evenly weighted both Precision
 and Recall, providing a more balanced picture of the overall effectiveness of the
 prediction. (As a level-set, if I were to randomly guess the genres for a particular
-movie, given the distribution of film genres in my sample set, my accuracy would be
+movie, given the distribution of film genres in my sample set, my F1 score would be
 less than 20%.)	The difference between 200+ word reviews and 500+ word reviews was not
 very much, however it clearly illustrated the trend that shorter reviews provided
 less information. For subsequent tests, I would use the 500+ word reviews subset.
+
+Since my initial dataset included approximately 40 reviews for each of my 3323 films,
+the 500+ word reviews subset still included all of the same mix of genres as the full
+dataset.
 
 ### Challenge 4: Type of predictive model
 
@@ -164,8 +168,11 @@ to the point where it was unrecoverable and I had to create a new one.)
 I then tried to optimize predictors using GridSearchCV. I recorded the parameters that
 yielded the best performing predictors for each genre, and created 14 separate predictors
 that could be combined to yield an overall prediction. Even though the GridSearch results
-indicated that prediction accuracy ranged between .75 and .95, I was unable to replicate
-those results. Again, the short time-frame allowed for the project prevented me from
+indicated that prediction accuracy ranged between .75 and .95, accuracy is not the best
+metric with a multi-label classification problem. The predictors had a very low F1 score.
+I attempted to substitute different types of loss functions, such as hamming and zero-one,
+but was unable to get results better than the default GradientBoostingClassifer.
+Again, the short time-frame allowed for the project prevented me from
 following up on this promising direction.
 
 I settled for using the parameter analysis from the GridSearch to optimize my single
@@ -193,6 +200,6 @@ war movies shared the single word "bloody" among their top differentiating words
 ## Next Steps
 
 I would like to build an app that allows someone to identify a new movie on IMDB
-and run it through the models. I have already written code to perform web Scraping
+and run it through the models. I have already written code to perform web scraping
 to identify films released since the original web scraping, find the longest reviews
 for those films, and prepare the reviews for being run against the model.
